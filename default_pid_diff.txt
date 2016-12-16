@@ -41,7 +41,6 @@ aux 1 1 1 1350 2100
 # adjrange
 
 # rxrange
-# Devo7e 5.x
 rxrange 0 1831 1158
 rxrange 1 1153 1831
 rxrange 2 1830 1155
@@ -52,6 +51,9 @@ rxrange 3 1120 1865
 # master
 set motor_pwm_protocol = BRUSHED
 set deadband = 4
+set failsafe_off_delay = 50
+set failsafe_throttle = 1350
+set failsafe_procedure = AUTO-LAND
 set acc_trim_roll = 16
 
 # profile
@@ -61,5 +63,4 @@ rateprofile 0
 
 # rateprofile
 rateprofile 0
-
 

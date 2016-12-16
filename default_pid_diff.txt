@@ -1,0 +1,65 @@
+
+# diff
+
+# version
+# BetaFlight/SPRACINGF3EVO 3.0.1 Oct 18 2016 / 10:36:44 (48b7b4f)
+
+# name
+
+# mixer
+
+# servo
+
+# servo mix
+
+
+# feature
+feature -TELEMETRY
+feature -BLACKBOX
+feature -TRANSPONDER
+feature LED_STRIP
+
+# beeper
+
+# map
+map TAER1234
+
+# serial
+
+# led
+led 0 0,0::AW:0
+
+# color
+
+# mode_color
+mode_color 6 1 1
+
+# aux
+aux 0 27 1 900 1400
+aux 1 1 1 1350 2100
+
+# adjrange
+
+# rxrange
+# Devo7e 5.x
+rxrange 0 1831 1158
+rxrange 1 1153 1831
+rxrange 2 1830 1155
+rxrange 3 1120 1865
+
+# rxfail
+
+# master
+set motor_pwm_protocol = BRUSHED
+set deadband = 4
+set acc_trim_roll = 16
+
+# profile
+profile 0
+
+rateprofile 0
+
+# rateprofile
+rateprofile 0
+
+

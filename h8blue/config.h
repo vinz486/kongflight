@@ -6,6 +6,8 @@
 
 // VINZ
 #define THROTTLE_TRANSIENT_COMPENSATION
+#define MIX_LOWER_THROTTLE
+#define CLIP_FF
 
 // rate in deg/sec
 // for acro mode
@@ -38,7 +40,7 @@
 
 // voltage to start warning
 // volts
-#define VBATTLOW 3.5
+#define VBATTLOW 3.4
 
 // compensation for battery voltage vs throttle drop
 // increase if battery low comes on at max throttle
@@ -183,7 +185,7 @@
 //#define RX_CX10BLUE_PROTOCOL
 
 // 0 - 7 - power for telemetry
-#define TX_POWER 4
+#define TX_POWER 7
 
 
 // Flash saving features
@@ -192,7 +194,7 @@
 
 // led brightness in-flight ( solid lights only)
 // 0- 15 range
-#define LED_BRIGHTNESS 15
+#define LED_BRIGHTNESS 8
 
 
 

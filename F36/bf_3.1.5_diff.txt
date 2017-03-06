@@ -18,6 +18,7 @@ rxrange 1 1118 1915
 rxrange 2 1915 1118
 rxrange 3 1118 1915
 rxfail 5 s 1900
+set rssi_channel = 9
 set motor_pwm_rate = 200
 set disarm_kill_switch = OFF
 set serialrx_provider = SBUS
@@ -28,7 +29,8 @@ set gyro_notch1_cut = 100
 set gyro_notch2_hz = 0
 set deadband = 4
 set yaw_deadband = 2
-set failsafe_throttle = 1030
+set failsafe_off_delay = 30
+set failsafe_throttle = 1038
 set failsafe_procedure = AUTO-LAND
 set pid_process_denom = 2
 profile 0
@@ -51,4 +53,4 @@ set roll_srate = 78
 set pitch_srate = 78
 set yaw_srate = 60
 
-# 
+#

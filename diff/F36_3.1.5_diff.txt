@@ -1,11 +1,14 @@
 # diff
 # Betaflight / SPRACINGF3EVO 3.1.5 Feb  7 2017 / 22:31:13 (4646f9d)
+name F36
 
 feature -RX_PPM
 feature -TELEMETRY
+feature -CURRENT_METER
 feature -RSSI_ADC
 feature -BLACKBOX
 feature -TRANSPONDER
+feature -SDCARD
 feature RX_SERIAL
 feature MOTOR_STOP
 serial 0 1 115200 57600 0 115200
@@ -16,32 +19,40 @@ aux 2 1 1 1700 2100
 rxrange 0 1915 1118
 rxrange 1 1118 1915
 rxrange 2 1915 1118
-rxrange 3 1118 1915
+rxrange 3 1160 1954
+rxfail 3 h
 rxfail 5 s 1900
 set rssi_channel = 9
-set motor_pwm_rate = 200
+set fpv_mix_degrees = 10
+set motor_pwm_rate = 32000
 set disarm_kill_switch = OFF
 set serialrx_provider = SBUS
-set gyro_sync_denom = 4
-set gyro_lowpass = 188
+set vbat_min_cell_voltage = 32
+set gyro_sync_denom = 2
+set gyro_lowpass = 100
 set gyro_notch1_hz = 0
 set gyro_notch1_cut = 100
 set gyro_notch2_hz = 0
 set deadband = 4
 set yaw_deadband = 2
+set failsafe_delay = 20
 set failsafe_off_delay = 30
-set failsafe_throttle = 1038
+set failsafe_throttle = 1450
+set failsafe_throttle_low_delay = 30
 set failsafe_procedure = AUTO-LAND
 set pid_process_denom = 2
 profile 0
 
+set d_lowpass_type = PT1
 set d_lowpass = 160
+set setpoint_relax_ratio = 50
+set d_setpoint_weight = 200
 set p_pitch = 92
 set i_pitch = 80
-set d_pitch = 25
+set d_pitch = 24
 set p_roll = 85
 set i_roll = 70
-set d_roll = 24
+set d_roll = 23
 set p_yaw = 200
 set i_yaw = 50
 rateprofile 0
@@ -53,4 +64,4 @@ set roll_srate = 78
 set pitch_srate = 78
 set yaw_srate = 60
 
-#
+# 

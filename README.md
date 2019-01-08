@@ -1,2 +1,1 @@
-# kongflight
-Betaflight 3.x.x Kong config file
+# Betaflight config files for my FPV quads

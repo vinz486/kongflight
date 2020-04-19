@@ -548,10 +548,10 @@ set gyro_overflow_detect = ALL
 set yaw_spin_recovery = ON
 set yaw_spin_threshold = 1950
 set gyro_to_use = FIRST
-set dyn_notch_range = LOW
+set dyn_notch_range = MEDIUM
 set dyn_notch_width_percent = 0
 set dyn_notch_q = 250
-set dyn_notch_min_hz = 150
+set dyn_notch_min_hz = 90
 set dyn_lpf_gyro_min_hz = 260
 set dyn_lpf_gyro_max_hz = 650
 set gyro_filter_debug_axis = ROLL
@@ -1005,12 +1005,12 @@ profile 0
 
 # profile 0
 set profile_name = -
-set dyn_lpf_dterm_min_hz = 84
-set dyn_lpf_dterm_max_hz = 204
+set dyn_lpf_dterm_min_hz = 91
+set dyn_lpf_dterm_max_hz = 221
 set dterm_lowpass_type = PT1
 set dterm_lowpass_hz = 150
 set dterm_lowpass2_type = PT1
-set dterm_lowpass2_hz = 180
+set dterm_lowpass2_hz = 195
 set dterm_notch_hz = 0
 set dterm_notch_cutoff = 0
 set vbat_pid_gain = OFF

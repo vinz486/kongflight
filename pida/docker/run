@@ -1,0 +1,2 @@
+#!/bin/bash
+xvfb-run /pid-analyzer.py -s n --blackbox_decode /blackbox_decode -l $1

@@ -185,6 +185,7 @@
       box-shadow: inset 0 0 28px color-mix(in srgb, var(--pad-color) 22%, transparent);
       transform: scale(.94);
       pointer-events: none;
+      animation: placeholder-pulse 720ms ease-in-out infinite alternate;
     }
 
     .pad.drop-target {
@@ -323,6 +324,11 @@
       to { opacity: 0; transform: translate(-50%, -190px) scale(1.55) rotate(24deg); }
     }
 
+    @keyframes placeholder-pulse {
+      from { opacity: .48; transform: scale(.91); }
+      to { opacity: .92; transform: scale(.96); }
+    }
+
     @media (orientation: landscape) {
       .topbar { height: 13%; }
       .lights { display: none; }
@@ -411,6 +417,7 @@
       let wakeLock = null;
       let exitUnlocked = false;
       let dragState = null;
+      let isSettling = false;
 
       function installBackGuard() {
         history.replaceState({ luciMagiche: "base" }, "", location.href);
@@ -487,15 +494,39 @@
         window.setTimeout(() => button.classList.remove("pop"), 190);
       }
 
-      function nearestPad(x, y, excluded) {
-        const stageRect = stage.getBoundingClientRect();
-        if (x < stageRect.left || x > stageRect.right || y < stageRect.top || y > stageRect.bottom) return null;
-
-        return pads.filter(pad => pad !== excluded).reduce((nearest, pad) => {
-          const rect = pad.getBoundingClientRect();
+      function nearestSlotIndex(x, y, slots) {
+        return slots.reduce((nearest, rect, index) => {
           const distance = Math.hypot(x - (rect.left + rect.width / 2), y - (rect.top + rect.height / 2));
-          return !nearest || distance < nearest.distance ? { pad, distance } : nearest;
-        }, null)?.pad || null;
+          return distance < nearest.distance ? { index, distance } : nearest;
+        }, { index: 0, distance: Infinity }).index;
+      }
+
+      function placePlaceholder(index, animate = true) {
+        if (!dragState?.placeholder || dragState.dropIndex === index) return;
+        const { button, placeholder } = dragState;
+        const movingPads = Array.from(stage.querySelectorAll(".pad")).filter(pad => pad !== button);
+        movingPads.forEach(pad => pad.getAnimations().forEach(animation => animation.cancel()));
+        const oldRects = new Map(movingPads.map(pad => [pad, pad.getBoundingClientRect()]));
+
+        if (index >= movingPads.length) stage.appendChild(placeholder);
+        else stage.insertBefore(placeholder, movingPads[index]);
+        dragState.dropIndex = index;
+
+        if (!animate) return;
+        movingPads.forEach(pad => {
+          const before = oldRects.get(pad);
+          const after = pad.getBoundingClientRect();
+          const deltaX = before.left - after.left;
+          const deltaY = before.top - after.top;
+          if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) return;
+          pad.animate(
+            [
+              { transform: `translate3d(${deltaX}px, ${deltaY}px, 0)`, offset: 0 },
+              { transform: "translate3d(0, 0, 0)", offset: 1 }
+            ],
+            { duration: 230, easing: "cubic-bezier(.2,.82,.25,1)" }
+          );
+        });
       }
 
       function updateDropTarget(x, y) {
@@ -507,6 +538,7 @@
 
         if (!dragState.dragging) {
           const rect = dragState.button.getBoundingClientRect();
+          dragState.slotRects = Array.from(stage.querySelectorAll(".pad"), pad => pad.getBoundingClientRect());
           const placeholder = document.createElement("div");
           placeholder.className = "pad-placeholder";
           placeholder.style.setProperty("--pad-color", dragState.button.style.getPropertyValue("--pad-color"));
@@ -526,56 +558,61 @@
         const moveY = y - dragState.startY;
         const tilt = Math.max(-7, Math.min(7, moveX / 24));
         dragState.button.style.transform = `translate3d(${moveX}px, ${moveY}px, 0) scale(1.07) rotate(${tilt}deg)`;
-
-        const nextTarget = nearestPad(x, y, dragState.button);
-        if (dragState.target !== nextTarget) {
-          if (dragState.target) dragState.target.classList.remove("drop-target");
-          dragState.target = nextTarget;
-          if (nextTarget) nextTarget.classList.add("drop-target");
-        }
-
-        if (nextTarget && dragState.placeholder) {
-          const rect = nextTarget.getBoundingClientRect();
-          const after = y > rect.top + rect.height / 2 ||
-            (Math.abs(y - (rect.top + rect.height / 2)) < rect.height * .22 && x > rect.left + rect.width / 2);
-          const anchor = after ? nextTarget.nextSibling : nextTarget;
-          if (anchor !== dragState.placeholder) stage.insertBefore(dragState.placeholder, anchor);
-        }
+        placePlaceholder(nearestSlotIndex(x, y, dragState.slotRects));
       }
 
       function finishDrag(shouldReorder) {
         if (!dragState) return;
-        const { button, target, dragging, placeholder, originalNext } = dragState;
-        if (dragging && placeholder) {
-          if (shouldReorder) {
-            stage.insertBefore(button, placeholder);
-          } else if (originalNext && originalNext.parentNode === stage) {
-            stage.insertBefore(button, originalNext);
-          } else {
-            stage.appendChild(button);
-          }
+        const state = dragState;
+        const { button, dragging, placeholder, originalIndex, originRect } = state;
+        dragState = null;
+        if (!dragging || !placeholder) return;
+
+        isSettling = true;
+        if (!shouldReorder) {
+          dragState = state;
+          placePlaceholder(originalIndex);
+          dragState = null;
+        }
+
+        const landingRect = placeholder.getBoundingClientRect();
+        const landingX = landingRect.left - originRect.left;
+        const landingY = landingRect.top - originRect.top;
+        button.style.transition = "transform 245ms cubic-bezier(.18,.86,.3,1.12), filter 245ms ease";
+        void button.offsetWidth;
+        button.style.transform = `translate3d(${landingX}px, ${landingY}px, 0) scale(1) rotate(0deg)`;
+
+        window.setTimeout(() => {
+          stage.insertBefore(button, placeholder);
           placeholder.remove();
           button.style.removeProperty("left");
           button.style.removeProperty("top");
           button.style.removeProperty("width");
           button.style.removeProperty("height");
           button.style.removeProperty("transform");
-        }
-        if (shouldReorder && dragging) {
-          if (navigator.vibrate) navigator.vibrate([22, 28, 38]);
-        }
-        button.classList.remove("dragging");
-        if (target) target.classList.remove("drop-target");
-        dragState = null;
+          button.style.removeProperty("transition");
+          button.classList.remove("dragging");
+          button.animate(
+            [
+              { transform: "scale(.94)" },
+              { transform: "scale(1.045)" },
+              { transform: "scale(1)" }
+            ],
+            { duration: 210, easing: "ease-out" }
+          );
+          isSettling = false;
+          if (shouldReorder && navigator.vibrate) navigator.vibrate([22, 28, 38]);
+        }, 255);
       }
 
       pads.forEach((button, index) => {
         button.addEventListener("pointerdown", event => {
           if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
+          if (dragState || isSettling) return;
           celebrate(button, index);
-          if (dragState) return;
           button.setPointerCapture(event.pointerId);
+          const order = Array.from(stage.querySelectorAll(".pad"));
           dragState = {
             button,
             pointerId: event.pointerId,
@@ -584,9 +621,11 @@
             lastX: event.clientX,
             lastY: event.clientY,
             dragging: false,
-            target: null,
             placeholder: null,
-            originalNext: button.nextElementSibling
+            originalIndex: order.indexOf(button),
+            originRect: button.getBoundingClientRect(),
+            slotRects: [],
+            dropIndex: order.indexOf(button)
           };
         });
         button.addEventListener("pointermove", event => {

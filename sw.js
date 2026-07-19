@@ -1,5 +1,5 @@
-const CACHE_NAME = "luci-magiche-v6";
-const OFFLINE_PAGE = "./?app-version=6";
+const CACHE_NAME = "luci-magiche-v6a";
+const OFFLINE_PAGE = "./?app-version=6a";
 const APP_FILES = [
   OFFLINE_PAGE,
   "./manifest.webmanifest",

@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#5b21b6">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Luci Magiche">
+  <meta name="description" content="Un gioco sensoriale di luci, colori e suoni per bambini piccoli.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <title>Luci Magiche</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #11112a;
+      --surface: #252556;
+      --surface-strong: #38387a;
+      --text: #fffaf0;
+      --pink: #ff4d8d;
+      --blue: #38bdf8;
+      --yellow: #facc15;
+      --purple: #a78bfa;
+      --green: #34d399;
+      --orange: #fb923c;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      min-height: 100dvh;
+      padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      background:
+        radial-gradient(circle at 15% 10%, rgb(56 189 248 / 34%), transparent 29%),
+        radial-gradient(circle at 88% 25%, rgb(255 77 141 / 31%), transparent 27%),
+        radial-gradient(circle at 50% 95%, rgb(167 139 250 / 33%), transparent 31%),
+        var(--bg);
+    }
+
+    #app.flash { animation: flash 360ms ease-out; }
+
+    .topbar {
+      height: 8%;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .adult-key {
+      width: 52px;
+      height: 52px;
+      border: 0;
+      border-radius: 18px;
+      background: rgb(255 255 255 / 8%);
+      opacity: .6;
+      touch-action: none;
+    }
+
+    .adult-key.held {
+      opacity: 1;
+      background: var(--purple);
+      box-shadow: 0 0 24px rgb(167 139 250 / 90%);
+    }
+
+    .counter {
+      min-width: 90px;
+      min-height: 44px;
+      padding: 4px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: rgb(255 255 255 / 12%);
+      font-size: clamp(24px, 7vw, 34px);
+      font-weight: 700;
+    }
+
+    .lights {
+      height: 8%;
+      min-height: 48px;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      align-items: center;
+      gap: 8px;
+      padding: 6px 4px;
+    }
+
+    .lights span {
+      aspect-ratio: 1;
+      max-height: 32px;
+      border-radius: 50%;
+      justify-self: stretch;
+      background: var(--pink);
+      box-shadow: 0 0 18px rgb(255 77 141 / 85%);
+      animation: blink 1.3s ease-in-out infinite alternate;
+    }
+
+    .lights span:nth-child(2n) {
+      background: var(--blue);
+      box-shadow: 0 0 18px rgb(56 189 248 / 85%);
+      animation-delay: -430ms;
+    }
+
+    .lights span:nth-child(3n) {
+      background: var(--yellow);
+      box-shadow: 0 0 18px rgb(250 204 21 / 85%);
+      animation-delay: -860ms;
+    }
+
+    .stage {
+      height: 84%;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(3, minmax(0, 1fr));
+      gap: clamp(9px, 2.2vw, 16px);
+      padding: 5px 0;
+    }
+
+    .pad {
+      min-width: 0;
+      min-height: 0;
+      border: 3px solid rgb(255 255 255 / 15%);
+      border-radius: clamp(24px, 7vw, 36px);
+      background: color-mix(in srgb, var(--pad-color) 30%, var(--surface));
+      box-shadow: 0 8px 0 color-mix(in srgb, var(--pad-color) 50%, #15152e), 0 0 26px color-mix(in srgb, var(--pad-color) 24%, transparent);
+      touch-action: none;
+    }
+
+    .pad span {
+      display: block;
+      font-size: clamp(58px, min(20vw, 13vh), 104px);
+      filter: drop-shadow(0 6px 4px rgb(0 0 0 / 25%));
+      pointer-events: none;
+    }
+
+    .pad.pop {
+      transform: translateY(7px) scale(.96) rotate(-2deg);
+      box-shadow: 0 2px 0 color-mix(in srgb, var(--pad-color) 50%, #15152e);
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+      background: rgb(17 17 42 / 88%);
+      backdrop-filter: blur(14px);
+    }
+
+    .overlay[hidden] { display: none; }
+
+    .start-card,
+    .adult-card,
+    .closed-card {
+      width: min(360px, 94vw);
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+      text-align: center;
+    }
+
+    .logo {
+      width: min(190px, 48vw);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
+      border-radius: 36%;
+      background: linear-gradient(145deg, var(--purple), var(--pink));
+      box-shadow: 0 0 46px rgb(167 139 250 / 58%);
+      font-size: clamp(86px, 27vw, 132px);
+      animation: breathe 1.25s ease-in-out infinite alternate;
+    }
+
+    h1, h2, p { margin: 0; }
+    h1 { font-size: clamp(31px, 10vw, 48px); }
+    h2 { font-size: clamp(27px, 8vw, 38px); }
+    p { color: rgb(255 250 240 / 78%); }
+
+    .primary,
+    .secondary,
+    .answer {
+      border: 0;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .primary {
+      width: 100%;
+      min-height: 76px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      box-shadow: 0 8px 0 #421875, 0 0 30px rgb(167 139 250 / 45%);
+      font-size: clamp(24px, 7vw, 32px);
+    }
+
+    .secondary {
+      min-height: 52px;
+      padding: 10px 22px;
+      background: var(--surface-strong);
+      font-size: 18px;
+    }
+
+    #install-button[hidden] { display: none; }
+
+    .question { font-size: clamp(32px, 10vw, 48px); font-weight: 700; }
+
+    .answers {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .answer {
+      min-width: 78px;
+      min-height: 64px;
+      background: var(--surface-strong);
+      font-size: 26px;
+    }
+
+    .closed-icon { font-size: 68px; }
+
+    .floater {
+      position: absolute;
+      z-index: 5;
+      font-size: 52px;
+      pointer-events: none;
+      animation: float-away 920ms ease-out forwards;
+    }
+
+    .toast {
+      position: absolute;
+      z-index: 30;
+      left: 50%;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: calc(100% - 32px);
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: var(--surface-strong);
+      text-align: center;
+      box-shadow: 0 8px 24px rgb(0 0 0 / 30%);
+    }
+
+    .toast[hidden] { display: none; }
+
+    @keyframes blink {
+      from { opacity: .25; transform: scale(.7); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes breathe {
+      from { transform: scale(.95) rotate(-2deg); }
+      to { transform: scale(1.04) rotate(2deg); }
+    }
+
+    @keyframes flash {
+      0% { filter: saturate(1); }
+      45% { filter: saturate(1.8) brightness(1.15); }
+      100% { filter: saturate(1); }
+    }
+
+    @keyframes float-away {
+      from { opacity: 1; transform: translate(-50%, -20%) scale(.7) rotate(0deg); }
+      to { opacity: 0; transform: translate(-50%, -190px) scale(1.55) rotate(24deg); }
+    }
+
+    @media (orientation: landscape) {
+      .topbar { height: 13%; }
+      .lights { display: none; }
+      .stage { height: 87%; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+      .pad span { font-size: clamp(54px, 17vh, 96px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lights span, .logo { animation-duration: 2.6s; }
+    }
+  </style>
+</head>
+<body>
+  <main id="app" aria-label="Gioco sensoriale Luci Magiche">
+    <header class="topbar">
+      <button type="button" class="adult-key" data-side="left" aria-label="Primo tasto adulto">🔒</button>
+      <div class="counter" aria-live="polite">✨ <span>0</span></div>
+      <button type="button" class="adult-key" data-side="right" aria-label="Secondo tasto adulto">🔒</button>
+    </header>
+
+    <div class="lights" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <section class="stage" aria-label="Pulsanti del gioco">
+      <button type="button" class="pad" style="--pad-color:var(--pink)" data-tone="0" aria-label="Stella musicale"><span>⭐</span></button>
+      <button type="button" class="pad" style="--pad-color:var(--green)" data-tone="1" aria-label="Rana buffa"><span>🐸</span></button>
+      <button type="button" class="pad" style="--pad-color:var(--yellow)" data-tone="2" aria-label="Tamburo"><span>🥁</span></button>
+      <button type="button" class="pad" style="--pad-color:var(--blue)" data-tone="3" aria-label="Razzo"><span>🚀</span></button>
+      <button type="button" class="pad" style="--pad-color:var(--purple)" data-tone="4" aria-label="Palloncino"><span>🎈</span></button>
+      <button type="button" class="pad" style="--pad-color:var(--orange)" data-tone="5" aria-label="Pulcino"><span>🐥</span></button>
+    </section>
+
+    <section id="start-overlay" class="overlay">
+      <div class="start-card">
+        <div class="logo" aria-hidden="true">⭐</div>
+        <h1>Luci Magiche</h1>
+        <button id="play-button" type="button" class="primary">▶ Gioca!</button>
+        <button id="install-button" type="button" class="secondary" hidden>⬇ Installa sul telefono</button>
+      </div>
+    </section>
+
+    <section id="adult-overlay" class="overlay" hidden>
+      <div class="adult-card">
+        <h2>Area adulti</h2>
+        <div id="question" class="question"></div>
+        <div id="answers" class="answers"></div>
+        <button id="cancel-button" type="button" class="secondary">Torna al gioco</button>
+      </div>
+    </section>
+
+    <section id="closed-overlay" class="overlay" hidden>
+      <div class="closed-card">
+        <div class="closed-icon">✅</div>
+        <h2>Gioco sbloccato</h2>
+        <p>Ora puoi uscire dall’app.</p>
+        <button id="reopen-button" type="button" class="secondary">Riapri il gioco</button>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const app = document.getElementById("app");
+      const startOverlay = document.getElementById("start-overlay");
+      const adultOverlay = document.getElementById("adult-overlay");
+      const closedOverlay = document.getElementById("closed-overlay");
+      const counter = document.querySelector(".counter span");
+      const question = document.getElementById("question");
+      const answers = document.getElementById("answers");
+      const toast = document.getElementById("toast");
+      const keys = Array.from(document.querySelectorAll(".adult-key"));
+      const pads = Array.from(document.querySelectorAll(".pad"));
+      const icons = ["⭐", "🐸", "🥁", "🚀", "🎈", "🐥", "🌈", "🫧", "✨"];
+      const baseNotes = [261.63, 329.63, 392, 523.25, 440, 349.23];
+      let audioContext = null;
+      let touches = 0;
+      let holdTimer = null;
+      let adultAnswer = 7;
+      let installPrompt = null;
+      let wakeLock = null;
+
+      function getAudio() {
+        if (!audioContext) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioContext = new AudioContextClass();
+        }
+        if (audioContext && audioContext.state === "suspended") audioContext.resume();
+        return audioContext;
+      }
+
+      function playTone(index) {
+        const context = getAudio();
+        if (!context) return;
+        const now = context.currentTime;
+        const sequences = [
+          [1, 1.25],
+          [1, 0.84, 1],
+          [1, 0.72],
+          [1, 1.5, 2],
+          [1, 1.34],
+          [1, 1.2, 1.5]
+        ];
+        sequences[index].forEach((ratio, step) => {
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          oscillator.type = index === 2 ? "triangle" : "sine";
+          oscillator.frequency.setValueAtTime(baseNotes[index] * ratio, now + step * 0.085);
+          gain.gain.setValueAtTime(0.0001, now + step * 0.085);
+          gain.gain.exponentialRampToValueAtTime(0.11, now + step * 0.085 + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + step * 0.085 + 0.2);
+          oscillator.connect(gain);
+          gain.connect(context.destination);
+          oscillator.start(now + step * 0.085);
+          oscillator.stop(now + step * 0.085 + 0.21);
+        });
+      }
+
+      function makeFloater(button) {
+        const rect = button.getBoundingClientRect();
+        const appRect = app.getBoundingClientRect();
+        const floater = document.createElement("span");
+        floater.className = "floater";
+        floater.textContent = icons[Math.floor(Math.random() * icons.length)];
+        floater.style.left = (rect.left - appRect.left + rect.width / 2) + "px";
+        floater.style.top = (rect.top - appRect.top + rect.height / 2) + "px";
+        app.appendChild(floater);
+        window.setTimeout(() => floater.remove(), 940);
+      }
+
+      function celebrate(button, index) {
+        touches += 1;
+        counter.textContent = String(touches);
+        button.classList.remove("pop");
+        void button.offsetWidth;
+        button.classList.add("pop");
+        app.classList.remove("flash");
+        void app.offsetWidth;
+        app.classList.add("flash");
+        makeFloater(button);
+        playTone(index);
+        if (navigator.vibrate) navigator.vibrate(24);
+        window.setTimeout(() => button.classList.remove("pop"), 190);
+      }
+
+      pads.forEach((button, index) => {
+        button.addEventListener("pointerdown", event => {
+          event.preventDefault();
+          celebrate(button, index);
+        });
+      });
+
+      async function requestWakeLock() {
+        if (!("wakeLock" in navigator)) return;
+        try {
+          wakeLock = await navigator.wakeLock.request("screen");
+        } catch (error) {
+          wakeLock = null;
+        }
+      }
+
+      document.getElementById("play-button").addEventListener("click", async () => {
+        getAudio();
+        startOverlay.hidden = true;
+        requestWakeLock();
+        try {
+          if (!window.matchMedia("(display-mode: standalone)").matches && !document.fullscreenElement) {
+            await document.documentElement.requestFullscreen();
+          }
+        } catch (error) {
+          showToast("Il gioco funziona anche senza tutto schermo");
+        }
+      });
+
+      function clearAdultHold() {
+        if (holdTimer) window.clearTimeout(holdTimer);
+        holdTimer = null;
+        keys.forEach(key => key.classList.remove("held"));
+      }
+
+      function maybeStartAdultHold() {
+        if (keys.every(key => key.dataset.pressed === "true") && !holdTimer) {
+          keys.forEach(key => key.classList.add("held"));
+          holdTimer = window.setTimeout(() => {
+            clearAdultHold();
+            openAdultGate();
+          }, 2200);
+        }
+      }
+
+      keys.forEach(key => {
+        key.addEventListener("pointerdown", event => {
+          event.preventDefault();
+          key.dataset.pressed = "true";
+          key.setPointerCapture(event.pointerId);
+          maybeStartAdultHold();
+        });
+        ["pointerup", "pointercancel", "lostpointercapture"].forEach(type => {
+          key.addEventListener(type, () => {
+            key.dataset.pressed = "false";
+            clearAdultHold();
+          });
+        });
+      });
+
+      function openAdultGate() {
+        const questions = [
+          { label: "Quanto fa 4 + 3?", answer: 7, choices: [6, 7, 9] },
+          { label: "Quanto fa 6 − 2?", answer: 4, choices: [3, 5, 4] },
+          { label: "Quanto fa 2 × 4?", answer: 8, choices: [8, 6, 10] }
+        ];
+        const item = questions[Math.floor(Math.random() * questions.length)];
+        adultAnswer = item.answer;
+        question.textContent = item.label;
+        answers.replaceChildren();
+        item.choices.forEach(value => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "answer";
+          button.textContent = String(value);
+          button.addEventListener("click", () => checkAdultAnswer(value));
+          answers.appendChild(button);
+        });
+        adultOverlay.hidden = false;
+      }
+
+      async function checkAdultAnswer(value) {
+        if (value !== adultAnswer) {
+          question.textContent = "No, riprova";
+          if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+          return;
+        }
+        adultOverlay.hidden = true;
+        closedOverlay.hidden = false;
+        if (wakeLock) {
+          await wakeLock.release();
+          wakeLock = null;
+        }
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+        } catch (error) {
+          // Il tasto Indietro resta disponibile dopo lo sblocco.
+        }
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.hidden = false;
+        window.setTimeout(() => { toast.hidden = true; }, 2600);
+      }
+
+      document.getElementById("cancel-button").addEventListener("click", () => { adultOverlay.hidden = true; });
+      document.getElementById("reopen-button").addEventListener("click", () => {
+        closedOverlay.hidden = true;
+        requestWakeLock();
+      });
+
+      window.addEventListener("beforeinstallprompt", event => {
+        event.preventDefault();
+        installPrompt = event;
+        document.getElementById("install-button").hidden = false;
+      });
+
+      document.getElementById("install-button").addEventListener("click", async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        const result = await installPrompt.userChoice;
+        if (result.outcome === "accepted") showToast("Installazione avviata");
+        installPrompt = null;
+        document.getElementById("install-button").hidden = true;
+      });
+
+      window.addEventListener("appinstalled", () => showToast("Luci Magiche è installata!"));
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible" && !startOverlay.hidden) return;
+        if (document.visibilityState === "visible" && !closedOverlay.hidden) return;
+        if (document.visibilityState === "visible") requestWakeLock();
+      });
+      app.addEventListener("contextmenu", event => event.preventDefault());
+
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {
+            showToast("Modalità offline non disponibile");
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

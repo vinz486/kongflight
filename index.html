@@ -381,6 +381,19 @@
       let adultAnswer = 7;
       let installPrompt = null;
       let wakeLock = null;
+      let exitUnlocked = false;
+
+      function installBackGuard() {
+        history.replaceState({ luciMagiche: "base" }, "", location.href);
+        history.pushState({ luciMagiche: "guard" }, "", location.href);
+      }
+
+      installBackGuard();
+
+      window.addEventListener("popstate", () => {
+        if (exitUnlocked) return;
+        history.pushState({ luciMagiche: "guard" }, "", location.href);
+      });
 
       function getAudio() {
         if (!audioContext) {
@@ -534,6 +547,8 @@
         }
         adultOverlay.hidden = true;
         closedOverlay.hidden = false;
+        exitUnlocked = true;
+        history.back();
         if (wakeLock) {
           await wakeLock.release();
           wakeLock = null;
@@ -554,6 +569,8 @@
       document.getElementById("cancel-button").addEventListener("click", () => { adultOverlay.hidden = true; });
       document.getElementById("reopen-button").addEventListener("click", () => {
         closedOverlay.hidden = true;
+        exitUnlocked = false;
+        installBackGuard();
         requestWakeLock();
       });
 

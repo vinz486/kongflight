@@ -166,6 +166,19 @@
       box-shadow: 0 2px 0 color-mix(in srgb, var(--pad-color) 50%, #15152e);
     }
 
+    .pad.dragging {
+      z-index: 4;
+      opacity: .58;
+      transform: scale(.9) rotate(-4deg);
+      filter: saturate(1.35);
+    }
+
+    .pad.drop-target {
+      transform: scale(1.04);
+      border-color: var(--text);
+      box-shadow: 0 0 0 5px rgb(255 255 255 / 30%), 0 0 34px var(--yellow);
+    }
+
     .overlay {
       position: absolute;
       inset: 0;
@@ -371,6 +384,7 @@
       const question = document.getElementById("question");
       const answers = document.getElementById("answers");
       const toast = document.getElementById("toast");
+      const stage = document.querySelector(".stage");
       const keys = Array.from(document.querySelectorAll(".adult-key"));
       const pads = Array.from(document.querySelectorAll(".pad"));
       const icons = ["⭐", "🐸", "🥁", "🚀", "🎈", "🐥", "🌈", "🫧", "✨"];
@@ -382,6 +396,7 @@
       let installPrompt = null;
       let wakeLock = null;
       let exitUnlocked = false;
+      let dragState = null;
 
       function installBackGuard() {
         history.replaceState({ luciMagiche: "base" }, "", location.href);
@@ -458,11 +473,79 @@
         window.setTimeout(() => button.classList.remove("pop"), 190);
       }
 
+      function nearestPad(x, y, excluded) {
+        const stageRect = stage.getBoundingClientRect();
+        if (x < stageRect.left || x > stageRect.right || y < stageRect.top || y > stageRect.bottom) return null;
+
+        return pads.filter(pad => pad !== excluded).reduce((nearest, pad) => {
+          const rect = pad.getBoundingClientRect();
+          const distance = Math.hypot(x - (rect.left + rect.width / 2), y - (rect.top + rect.height / 2));
+          return !nearest || distance < nearest.distance ? { pad, distance } : nearest;
+        }, null)?.pad || null;
+      }
+
+      function updateDropTarget(x, y) {
+        if (!dragState) return;
+        dragState.lastX = x;
+        dragState.lastY = y;
+        const distance = Math.hypot(x - dragState.startX, y - dragState.startY);
+        if (!dragState.dragging && distance < 18) return;
+
+        dragState.dragging = true;
+        dragState.button.classList.add("dragging");
+        const nextTarget = nearestPad(x, y, dragState.button);
+        if (dragState.target !== nextTarget) {
+          if (dragState.target) dragState.target.classList.remove("drop-target");
+          dragState.target = nextTarget;
+          if (nextTarget) nextTarget.classList.add("drop-target");
+        }
+      }
+
+      function finishDrag(shouldReorder) {
+        if (!dragState) return;
+        const { button, target, dragging, lastX, lastY } = dragState;
+        if (shouldReorder && dragging && target) {
+          const rect = target.getBoundingClientRect();
+          const after = lastY > rect.top + rect.height / 2 ||
+            (Math.abs(lastY - (rect.top + rect.height / 2)) < rect.height * .22 && lastX > rect.left + rect.width / 2);
+          stage.insertBefore(button, after ? target.nextSibling : target);
+          if (navigator.vibrate) navigator.vibrate([22, 28, 38]);
+        }
+        button.classList.remove("dragging");
+        if (target) target.classList.remove("drop-target");
+        dragState = null;
+      }
+
       pads.forEach((button, index) => {
         button.addEventListener("pointerdown", event => {
+          if (event.pointerType === "mouse" && event.button !== 0) return;
           event.preventDefault();
           celebrate(button, index);
+          if (dragState) return;
+          button.setPointerCapture(event.pointerId);
+          dragState = {
+            button,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            lastX: event.clientX,
+            lastY: event.clientY,
+            dragging: false,
+            target: null
+          };
         });
+        button.addEventListener("pointermove", event => {
+          if (!dragState || dragState.button !== button || dragState.pointerId !== event.pointerId) return;
+          event.preventDefault();
+          updateDropTarget(event.clientX, event.clientY);
+        });
+        button.addEventListener("pointerup", event => {
+          if (!dragState || dragState.button !== button || dragState.pointerId !== event.pointerId) return;
+          updateDropTarget(event.clientX, event.clientY);
+          finishDrag(true);
+        });
+        button.addEventListener("pointercancel", () => finishDrag(false));
+        button.addEventListener("lostpointercapture", () => finishDrag(false));
       });
 
       async function requestWakeLock() {

@@ -410,6 +410,8 @@
       const icons = ["⭐", "🐸", "🥁", "🚀", "🎈", "🐥", "🌈", "🫧", "✨"];
       const baseNotes = [261.63, 329.63, 392, 523.25, 440, 349.23];
       let audioContext = null;
+      let audioBus = null;
+      const soundTurns = baseNotes.map(() => 0);
       let touches = 0;
       let holdTimer = null;
       let adultAnswer = 7;
@@ -434,37 +436,134 @@
       function getAudio() {
         if (!audioContext) {
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (AudioContextClass) audioContext = new AudioContextClass();
+          if (AudioContextClass) {
+            audioContext = new AudioContextClass();
+            const compressor = audioContext.createDynamicsCompressor();
+            const master = audioContext.createGain();
+            compressor.threshold.value = -20;
+            compressor.knee.value = 14;
+            compressor.ratio.value = 8;
+            compressor.attack.value = 0.004;
+            compressor.release.value = 0.18;
+            master.gain.value = 0.72;
+            compressor.connect(master);
+            master.connect(audioContext.destination);
+            audioBus = compressor;
+          }
         }
         if (audioContext && audioContext.state === "suspended") audioContext.resume();
         return audioContext;
       }
 
+      function playVoice(context, options) {
+        const {
+          at, frequency, endFrequency = frequency, duration = 0.2,
+          type = "sine", volume = 0.055, brightness = 4200
+        } = options;
+        const oscillator = context.createOscillator();
+        const filter = context.createBiquadFilter();
+        const gain = context.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(Math.max(40, frequency), at);
+        oscillator.frequency.exponentialRampToValueAtTime(Math.max(40, endFrequency), at + duration);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(brightness, at);
+        filter.Q.value = 0.8;
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(volume, at + Math.min(0.012, duration * 0.18));
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+        oscillator.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioBus);
+        oscillator.start(at);
+        oscillator.stop(at + duration + 0.025);
+      }
+
+      function playBell(context, at, frequency, duration = 0.28, volume = 0.052) {
+        playVoice(context, { at, frequency, duration, volume, type: "sine", brightness: 7000 });
+        playVoice(context, {
+          at, frequency: frequency * 2.01, endFrequency: frequency * 2,
+          duration: duration * 0.68, volume: volume * 0.34, type: "sine", brightness: 9000
+        });
+        playVoice(context, {
+          at: at + 0.008, frequency: frequency * 3.98,
+          duration: duration * 0.4, volume: volume * 0.13, type: "sine", brightness: 11000
+        });
+      }
+
+      function playDrumSpark(context, at, accent = 1) {
+        playVoice(context, {
+          at, frequency: 230 * accent, endFrequency: 72,
+          duration: 0.18, volume: 0.072, type: "triangle", brightness: 2400
+        });
+        playVoice(context, {
+          at, frequency: 920 * accent, endFrequency: 510,
+          duration: 0.075, volume: 0.026, type: "square", brightness: 3200
+        });
+      }
+
       function playTone(index) {
         const context = getAudio();
-        if (!context) return;
-        const now = context.currentTime;
-        const sequences = [
-          [1, 1.25],
-          [1, 0.84, 1],
-          [1, 0.72],
-          [1, 1.5, 2],
-          [1, 1.34],
-          [1, 1.2, 1.5]
-        ];
-        sequences[index].forEach((ratio, step) => {
-          const oscillator = context.createOscillator();
-          const gain = context.createGain();
-          oscillator.type = index === 2 ? "triangle" : "sine";
-          oscillator.frequency.setValueAtTime(baseNotes[index] * ratio, now + step * 0.085);
-          gain.gain.setValueAtTime(0.0001, now + step * 0.085);
-          gain.gain.exponentialRampToValueAtTime(0.11, now + step * 0.085 + 0.012);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + step * 0.085 + 0.2);
-          oscillator.connect(gain);
-          gain.connect(context.destination);
-          oscillator.start(now + step * 0.085);
-          oscillator.stop(now + step * 0.085 + 0.21);
-        });
+        if (!context || !audioBus) return;
+        const now = context.currentTime + 0.006;
+        const variation = soundTurns[index]++ % 3;
+        const shimmer = 0.985 + Math.random() * 0.03;
+
+        if (index === 0) {
+          const patterns = [[1, 1.25, 1.5], [1.5, 2, 2.5], [1, 1.5, 2, 3]];
+          patterns[variation].forEach((ratio, step) => {
+            playBell(context, now + step * 0.065, baseNotes[0] * 2 * ratio * shimmer, 0.3 - step * 0.025, 0.046);
+          });
+        } else if (index === 1) {
+          const bounces = [[1, 0.72, 1.12], [0.84, 1.18, 0.76], [1.15, 0.8, 1.32]][variation];
+          bounces.forEach((ratio, step) => {
+            const frequency = baseNotes[1] * ratio * shimmer;
+            playVoice(context, {
+              at: now + step * 0.09, frequency: frequency * 1.28, endFrequency: frequency,
+              duration: 0.17, volume: 0.055, type: "sine", brightness: 5200
+            });
+            playVoice(context, {
+              at: now + step * 0.09, frequency: frequency * 2.04, endFrequency: frequency * 1.7,
+              duration: 0.1, volume: 0.015, type: "triangle", brightness: 7600
+            });
+          });
+        } else if (index === 2) {
+          const rhythms = [[0, 0.115], [0, 0.08, 0.18], [0, 0.14, 0.205]][variation];
+          rhythms.forEach((delay, step) => playDrumSpark(context, now + delay, 1 + step * 0.08));
+        } else if (index === 3) {
+          const start = [145, 175, 125][variation] * shimmer;
+          const finish = [760, 980, 1220][variation];
+          playVoice(context, {
+            at: now, frequency: start, endFrequency: finish,
+            duration: 0.46, volume: 0.043, type: "sawtooth", brightness: 3100
+          });
+          [1, 1.5, 2, 3].slice(0, variation + 2).forEach((ratio, step) => {
+            playBell(context, now + 0.19 + step * 0.07, 520 * ratio * shimmer, 0.15, 0.022);
+          });
+        } else if (index === 4) {
+          const bubbles = [[1, 1.34, 1.68], [1.5, 1.2, 1.8], [1, 1.25, 1.5, 2]][variation];
+          bubbles.forEach((ratio, step) => {
+            const frequency = baseNotes[4] * ratio * shimmer;
+            playVoice(context, {
+              at: now + step * 0.075, frequency: frequency * 0.72, endFrequency: frequency,
+              duration: 0.16, volume: 0.048, type: "sine", brightness: 6800
+            });
+            playBell(context, now + step * 0.075 + 0.018, frequency * 1.5, 0.13, 0.018);
+          });
+        } else {
+          const chirps = [[1, 1.28], [1.16, 1.5, 1.3], [1, 1.42, 1.75]][variation];
+          chirps.forEach((ratio, step) => {
+            const frequency = baseNotes[5] * 2 * ratio * shimmer;
+            playVoice(context, {
+              at: now + step * 0.075, frequency, endFrequency: frequency * 1.22,
+              duration: 0.105, volume: 0.034, type: "square", brightness: 5600
+            });
+            playVoice(context, {
+              at: now + step * 0.075, frequency: frequency * 1.5, endFrequency: frequency * 1.72,
+              duration: 0.08, volume: 0.014, type: "sine", brightness: 9000
+            });
+          });
+        }
       }
 
       function makeFloater(button) {
